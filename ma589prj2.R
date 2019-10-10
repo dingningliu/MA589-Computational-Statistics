@@ -1,0 +1,113 @@
+#1
+horner<-function(coef)
+  function(x) {
+    s<-0
+    for(i in seq(length(coef),1,-1))
+      s<-s*x+coef[i]
+    s
+  }
+
+#(a)
+horner(c(3,-2,1))
+
+#(b)
+c_b<-c(2,-4,-1/2,1)
+pxb<-horner(c_b)
+curve(pxb,from=-3,to=3)
+
+#(c)
+d.coef<-function(coef){
+  l<-length(coef)
+  dcoef<-numeric(l-1)
+  for (i in 1:l-1) {
+    dcoef[i]<-(i+1)*coef[i+1]
+  }
+  horner(dcoef)
+}
+
+
+mle<-function(x, tolerance = 1e-10, max.iterations = 25) {
+  # init
+  p<-horner(c(2,-4,-1/2,1))
+  Dp<-horner(c(-4,-1,3))   #Dp/Dx
+  p.old<-p(x)
+  Dp.old<-Dp(x)
+  for (it in 1:max.iterations){
+   x.new <- x - p.old/ Dp.old
+   p.new<-p(x.new)
+   Dp.new<-Dp(x.new)
+   if (abs((x.new - x) / x) < tolerance) break
+   x <- x.new; p.old <- p.new; Dp.old<-Dp.new
+  }
+  return(x)
+}
+mle(-1.5)
+mle(0)
+mle(1.5)
+#(d)
+coef.le<-function(n) {
+  if (n==0) return(c(1))
+  else if (n==1) return(c(0,1))
+  else if (n==2) return(c(-1/2,0,-2/3))
+  else if (n>2) {
+    lep1<-c(-1/2,0,-2/3)
+    lep2<-c(0,1)
+    for(i in 3:n) {
+    le<-numeric(i+1)
+    le[1]<-(-(i-1)/i)*lep2[1]
+    for (j in 2:i-1) {
+      le[j]<-((2i-1)/(i-1))*lep1[j-1]+(-(i-1)/i)*lep1[j]
+    }
+    le[i]<-((2i-1)/i)*lep1[i-1]
+    le[i+1]<-((2i-1)/i)*lep1[i]
+    lep2<-lep1
+    lep1<-le
+    }
+    return(le)
+  }
+  }
+
+
+
+
+#2
+#(a)
+vandermonde <- function (a, d) outer(a, 0:d, `^`)
+x<-c(-3,-2.5,-2,-1.5,-1,-0.5,0,0.5,1,1.5,2,2.5,3)
+y<-c(-17,-7,0.5,3,5,4,2.5,-0.5,-2,-2,0.5,5,12)
+X<-vandermonde(x,4)
+m<-cbind(crossprod(X,X),crossprod(X,y)) #combine t(X)X and t(X)y by columns
+n<-cbind(crossprod(y,X),crossprod(y,y)) #combine t(y)X and t(y)y by columns
+Tt<-rbind(m,n)
+#(b)
+sweepb<-function(t,k) {
+  trow<-nrow(t)
+  D<-t[k,k]
+  t[k,]<-t[k,]/D
+  for (i in 1:trow) {
+    if (i==k) {}
+    else {
+    B<-t[i,k]
+    t[i,]<-t[i,]-B*t[k,]
+    t[i,k]<-(-B/D)
+  }
+  t[k,k]<-1/D}
+  return(t)
+}
+for (k in 1:5) {
+  b<-sweepb(sweepb(Tt,k),k)
+  print(b)
+}
+
+#(c)
+plot(x,y)
+a<-seq(-3,3,length.out=100)
+p<-ncol(Tt)-1
+for (k in 1:p) {
+  Tt<-sweepb(Tt,k)
+  lines(a,horner(Tt[1:k,p+1])(a),lty=k)
+  print(c(k,Tt[p+1,p+1]))
+}
+
+
+
