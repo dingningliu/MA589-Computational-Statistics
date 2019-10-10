@@ -1,0 +1,240 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+```{r}
+#1(1)
+gumble<-function(mu,sigma,n){
+  u<-runif(n)
+  mu-sigma*log(-log(u))
+}
+res_1<-gumble(digamma(1),1,1000)
+qq_1<-numeric(1000)
+for (i in 1:1000) {
+  qq_1[i]<-digamma(1)-log(-log(i/1001))
+}
+sort_1<-sort(res_1)
+plot(qq_1,sort_1,main="QQplot",ylab="Sample")
+
+
+#1(2)
+truncexp<-function(lambda,a,b){
+  u<-runif(1)
+  -(log(u*(exp(-lambda*b)-exp(-lambda*a))+exp(-lambda*a)))/lambda
+}
+res_2<-numeric(1000)
+qq_2<-numeric(1000)
+for (i in 1:1000) {
+  res_2[i]<-truncexp(1,0.5,1.5)
+  qq_2[i]<--(log(i/1001*(exp(-1.5)-exp(-0.5))+exp(-0.5)))
+}
+sort_2<-sort(res_2)
+plot(qq_2,sort_2,main="QQplot",ylab="Sample")
+
+res_21<-numeric(1000)
+qq_21<-numeric(1000)
+for (i in 1:1000) {
+  res_21[i]<-truncexp(2,1.5,Inf)
+  qq_21[i]<--(log(i/1001*(exp(-2*Inf)-exp(-3))+exp(-3)))/2
+}
+sort_21<-sort(res_21)
+plot(qq_21,sort_21,main="QQplot",ylab="Sample")
+
+```
+
+```{r}
+#2
+LOGEPS <- log(.Machine$double.eps / 2)
+# soft max (log-sum-exp) of vector `x`
+lse <- function (x) {
+  m <- max(x); x <- x - m
+  m + log(sum(exp(x[x > LOGEPS])))
+}
+#(a)
+new_rcat<-function(n,l){
+  findInterval(runif(n),cumsum(exp(l-lse(l))))+1
+}
+#(b)
+gmt_rcat<-function(l,n){
+  k<-length(l)
+  i<-numeric(n)
+  for (j in 1:n) {
+    G<-gumble(digamma(1),1,k)
+    i[j]<-which.max(G+l)
+  }
+  return(i)
+}
+w.test<-c(0.1,0.3,0.05,0.15,0.13,0.27)
+l<-log(w.test)
+gmt_rcat(l,10)
+
+```
+
+#3(a)
+$$\phi(x)=\frac{1}{\sqrt{2\pi}}exp(-\frac{x^2}{2})$$
+
+#3(b)
+$$x^{*}_{0}=\frac{1}{2} \ \ \ \ \ \ \ \ \ \ \  x^{*}_{1}=\frac{3}{2}$$
+$$Mg(x)=\frac{1}{\sqrt{2\pi}}I(0\leq x\leq \frac{1}{2})+\frac{1}{\sqrt{2\pi}}e^{\frac{1}{2}-x}I(\frac{1}{2}\leq x\leq \frac{3}{2})+\frac{1}{\sqrt{2\pi}}e^{2-2x}I(x>\frac{3}{2})$$
+$$Mg(x)=\frac{1}{2\sqrt{2\pi}}*2I(0\leq x\leq \frac{1}{2})+\frac{1-e^{-1}}{\sqrt{2\pi}}*\frac{e^{\frac{1}{2}-x}}{1-e^{-1}}I(\frac{1}{2}\leq x\leq \frac{3}{2})+\frac{e^{-1}}{2\sqrt{2\pi}}*\frac{2e^{2-2x}}{e^{-1}}I(x>\frac{3}{2})$$
+$$g_{1}(x)=2I(0\leq x\leq \frac{1}{2})\ \ \ \ \ \ g_{2}(x)=\frac{e^{\frac{1}{2}-x}}{1-e^{-1}}I(\frac{1}{2}\leq x\leq \frac{3}{2})\ \ \ \ \ \ \ g_{3}(x)=\frac{2e^{2-2x}}{e^{-1}}I(x>\frac{3}{2})$$
+$$Mg(x)=\frac{1}{2\sqrt{2\pi}}*g_{1}(x)+\frac{1-e^{-1}}{\sqrt{2\pi}}*g_{2}(x)+\frac{e^{-1}}{2\sqrt{2\pi}}*g_{3}(x)$$
+$$Mg(x)=(\frac{3-e^{-1}}{2\sqrt{2\pi}})*[\frac{1}{3-e^{-1}}*g_{1}(x)+\frac{2(1-e^{-1})}{3-e^{-1}}*g_{2}(x)+\frac{e^{-1}}{3-e^{-1}}*g_{3}(x)]$$
+thus we can get
+$$M=\frac{3-e^{-1}}{2\sqrt{2\pi}}$$
+$$\lambda_{1}=\frac{1}{3-e^{-1}} \ \ \ \ \ \lambda_{2}=\frac{2(1-e^{-1})}{3-e^{-1}} \ \ \ \ \ \ \ \lambda_{3}=\frac{e^{-1}}{3-e^{-1}}$$
+so we have
+$$\quad \frac{ \phi (x)}{M_1g_1(x)}=e^{ -\frac {x^2} {2} } \quad \quad \frac{ \phi (x)}{M_2g_2(x)}=e^{ -\frac {(x-1)^2} {2} } \quad \quad \frac{ \phi (x)}{M_3g_3(x)}=e^{ -\frac {(x-2)^2} {2} }$$
+```{r}
+#3(c)
+e<-exp(1)
+#3(3)
+rbern <- function (n, p = 0.5) runif(n) < p
+  
+rsnorm3 <- function () {
+    lambda1 <- 1 / (3-e^(-1)) # prob of body1
+    lambda2 <- 2*(1-exp(-1))/(3-e^(-1)) #prob of body2
+    lambda3 <- exp(-1)/(3-e^(-1)) #prob of tail
+    repeat {
+      B<-runif(1)
+      if (B < lambda1) { # body1
+        x <- .5 * runif(1) # X ~ U(0, .5)
+        if (log(runif(1)) < -0.5 * x ^ 2) break
+      }
+      else if (B < lambda1+lambda2) { #body2
+        x <- -log(1-(1-e^(-1)) * runif(1)) + .5 # X ~ Exp(1) + .5
+            if (log(runif(1)) < -0.5 * (x-1) ^ 2) break
+        }
+      else { #tail
+          x <- -0.5 * log(runif(1)) + 1.5 # X ~ Exp(2) + 1
+          if (log(runif(1)) < -0.5 * (x-2) ^ 2) break
+        }
+    }
+    (2 * rbern(1) - 1) * x
+  }
+
+```
+The area of the stardard normal
+$$A(\phi)=2*\frac{1}{2}=1$$
+The area of our envelops
+$$A(e_z)=2*(\int_{0}^{\frac{1}{2}}\frac{1}{\sqrt{2\pi}}+\int_{\frac{1}{2}}^{\frac{3}{2}}\frac{1}{\sqrt{2\pi}}e^{\frac{1}{2}-x}+\int_{\frac{3}{2}}^{\infty}\frac{1}{\sqrt{2\pi}}e^{2-2x})=\frac{3-e^{-1}}{\sqrt{2\pi}}$$
+So the efficiency is 
+$$E=\frac{A(\phi)}{A(e_z)}=95.23\%$$
+The proportion of rejection is 4.77%
+```{r}
+#3(d)
+res_3<-numeric(1000)
+qq_3<-numeric(1000)
+for (i in 1:1000) {
+  res_3[i]<-rsnorm3()
+  qq_3[i]<-rnorm(1000)[i]
+}
+plot(sort(qq_3),sort(res_3),main="QQplot")
+```
+
+```{r}
+#4
+rwalk<-function(p){
+  j<-1 #start
+  walk<-c()  #store movements
+  repeat {
+    j<-j+(2*rbinom(1,1,p)-1)  #move
+    walk<-append(walk,j)
+    if (j==0 || j==20) return(walk)
+  }
+}
+#(a)
+rdesbp<-function(p) {
+    r<-rwalk(p)
+    as.numeric(isTRUE(r[length(r)]==20))
+  }
+rbp<-numeric(100000) 
+for (i in 1:100000) {
+  rbp[i]<-rdesbp(0.5)
+}
+mean(rbp)
+sd(rbp)/sqrt(100000)
+mean(rbp)+1.96*sd(rbp)/sqrt(100000)
+mean(rbp)-1.96*sd(rbp)/sqrt(100000)
+
+
+```
+
+```{r}
+#(b)
+rlength<-function(p){
+  len<-numeric(100000)
+  for (i in 1:100000) {
+    r<-rwalk(p)
+    len[i]<-length(r)
+  }
+  return(len)
+}
+leng<-rlength(0.5)
+hist(leng) 
+length(leng[leng>=200])/length(leng)
+
+```
+
+```{r}
+#(c)
+rlengthbp<-function(p){
+  len<-numeric(100000)
+  l<-1
+  while(l<=100000){
+    r<-rwalk(p)
+    des<-r[length(r)]
+    if (des==20){
+     len[l]<-length(r)
+     l<-l+1
+    }
+  }
+  return(len)
+}
+
+lenbp<-rlengthbp(0.5)
+hist(lenbp)
+
+```
+
+```{r}
+#(d)
+dugout<-function(p) {
+  times_g<-numeric(100000)
+  for (i in 1:100000) {
+    r<-rwalk(p)
+    times_g[i]<-length(r[(r==18)])
+  }
+  return(mean(times_g))
+}
+dugout(0.5)
+```
+
+```{r}
+#(e)
+weight<-function(rw,p,ploaded){
+  l<-length(rw)
+  if (rw[l] == 0){
+    logw<-(l/2-0.5)*log(p/ploaded)+(l/2+0.5)*log((1-p)/(1-ploaded))
+  }
+  else{
+    logw<-(l/2+9.5)*log(p/ploaded)+(l/2-9.5)*log((1-p)/(1-ploaded))
+  }
+    return(exp(logw))
+}
+
+#(f)
+risdesbp<-function(p,ploaded) {
+  rw<-rwalk(ploaded)
+  weight(rw,p,ploaded)*isTRUE(rw[length(rw)]==20)
+}
+
+risbp<-as.numeric(replicate(100000,risdesbp(0.5,0.55)))
+mean(risbp)
+sd(risbp)/sqrt(100000)
+mean(risbp)+1.96*sd(risbp)/sqrt(100000)
+mean(risbp)-1.96*sd(risbp)/sqrt(100000)
+(sd(rbp)/sqrt(100000))/(sd(risbp)/sqrt(100000))
+```
+

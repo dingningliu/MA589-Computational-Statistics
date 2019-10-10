@@ -1,0 +1,200 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+#1(a)
+$$X_{1},X_{2},...,X{n}\mid Z_{i}～Z_{i}Po(\lambda_{d})+(1-Z_{i})Po(\lambda_{c})$$
+$$f(X_{i})=Z_{i}P(X_{i};\lambda_{d})+(1-Z_{i})P(X_{i};\lambda_{c})$$
+$$L(\lambda_{d},\lambda_{c},X,Z)=\prod_{i=1}^{n}(P(X_{i};\lambda_{d})^{Z_{i}}*P(X_{i};\lambda_{c})^{1-Z_{i}}*\pi^{Z_{i}}*(1-\pi)^{(1-Z_{i})})$$
+$$\ell(\lambda_{d},\lambda_{c},X,Z)=\sum_{i=1}^{n}(Z_{i}*[log(P(X_{i};\lambda_{d}))+log(\pi)]+(1-Z_{i})*[log(P(X_{i};\lambda_{c}))+log(1-\pi)])$$
+To define Q in E-step, we need $E_{Z\mid X;\pi^{(t)};\lambda^{(t)}_{d};\lambda^{(t)}_{c}}(Z_{i})$
+$$\alpha^{(t)}_{i}=E_{Z\mid X;\pi^{(t)};\lambda^{(t)}_{d};\lambda^{(t)}_{c}}(Z_{i})$$
+$$=P(Z_{i}=1\mid X;\lambda^{(t)}_{d};\lambda^{(t)}_{c})$$
+$$=\frac{P(Z_{i}=1;X;\lambda^{(t)}_{d};\lambda^{(t)}_{c})}{P(X;\lambda^{(t)}_{d};\lambda^{(t)}_{c})}$$
+$$=\frac{\sum_{Z_{i} \in\lbrace0,1\rbrace,j\neq i}P(Z_{j};Z_{i}=1;X;\lambda^{(t)}_{d};\lambda^{(t)}_{c})}{\sum_{Z_{i}\in\lbrace0,1\rbrace}P(Z_{j};X;\lambda^{(t)}_{d};\lambda^{(t)}_{c})}$$
+$$=\frac{\sum_{Z_{i} \in\lbrace0,1\rbrace,j\neq i}(\prod_{k=1,k\neq 1}P(X_{k}\mid Z_{k};\lambda_{d}^{(t)};\lambda_{c}^{(t)}))P(Z_{k};\lambda^{(t)}_{d};\lambda^{(t)}_{c})P(X_{i}\mid Z_{i}=1;\lambda_{d}^{(t)};\lambda_{c}^{(t)}))P(Z_{i}=1;\lambda^{(t)}_{d};\lambda^{(t)}_{c})}{\sum_{Z_{i}\in\lbrace0,1\rbrace,j\neq i}(\prod_{k=1,k\neq1}P(X_{k}\mid Z_{k};\lambda_{d}^{(t)};\lambda_{c}^{(t)}))P( Z_{k};\lambda^{(t)}_{d};\lambda^{(t)}_{c})(\sum_{Z_{i}\in\lbrace0,1\rbrace}P(X_{i}\mid Z_{i};\lambda_{d}^{(t)};\lambda_{c}^{(t)})P(Z_{i};\lambda^{(t)}_{d};\lambda^{(t)}_{c}))}$$
+$$=\frac{P(X_{i}\mid Z_{i}=1;\lambda^{(t)}_{d};\lambda^{(t)}_{c})P(Z_{i}=1;\lambda^{(t)}_{d};\lambda^{(t)}_{c})}{\sum_{Z_{i}\in\lbrace0,1\rbrace} P(X_{i}\mid Z_{i};\lambda^{(t)}_{d};\lambda^{(t)}_{c})P(Z_{i};\lambda^{(t)}_{d};\lambda^{(t)}_{c})}$$
+So we can get 
+$$\alpha_{i}^{(t)}=\frac{\pi^{(t)}P(X_{i};\lambda^{(t)}_{d})}{\pi^{(t)}P(X_{i};\lambda^{(t)}_{d})+(1-\pi^{(t)})P(X_{i};\lambda^{(t)}_{c})}$$
+$$Q(\lambda^{(t)}_{d};\lambda^{(t)}_{c};\lambda_{d};\lambda_{c})=E_{Z\mid X;\lambda^{(t)}_{d};\lambda^{(t)}_{c}}(\ell(\lambda^{(t)}_{d};\lambda^{(t)}_{c};X,Z))$$
+$$=\sum_{i=1}^n \{\alpha^{(t)}_i*[log[P(X_i;\lambda_d)]+log\pi]+(1-\alpha^{(t)}_i)*[log[P(X_i;\lambda_c)]+log(1-\pi)] \}$$
+#1(b)
+$$\frac{\partial Q}{\partial \pi}=\sum^n_{i=1}(\frac{\alpha^{(t)}_i}{\pi}-\frac{1-\alpha^{(t)}_i}{1-\pi})$$
+$$\sum^n_{i=1}[\frac{\alpha^{(t)}_i}{\pi^{(t+1)}}-\frac{1-\alpha^{(t)}_i}{1-\pi^{(t+1)}}]=0$$
+then we can get$$\pi^{(t+1)}=\frac{\sum^n_{i=1}\alpha^{(t)}_i}{n}$$
+because $$log[P(X_i;\lambda)]=X_ilog(\lambda)-\lambda-log(X_i !)$$
+$$\frac{\partial Q}{\partial \lambda_d}=\sum^n_{i=1}[\alpha^{(t)}_i(-1+\frac{X_i}{\lambda_d})]$$
+then we can get$$\lambda^{(t+1)}_d=\frac{\sum^n_{i=1}\alpha^{(t)}_iX_i}{\sum^n_{i=1}\alpha^{(t)}_i} $$
+$$\frac{\partial Q}{\partial \lambda_c}=\sum^n_{i=1}[(1-\alpha^{(t)}_i)(-1+\frac{X_i}{\lambda_c})]$$
+then we can get$$\lambda^{(t+1)}_c=\frac{\sum^n_{i=1}(1-\alpha^{(t)}_i)X_i}{\sum^n_{i=1}(1-\alpha^{(t)}_i)} $$
+
+```{r}
+#1(c)
+x<-t(c(2,0,0,1,3,0,1,6,2,0,1,0,2,0,8,0,1,3,2,0))
+dim(x)
+xmean<-mean(x)
+em<-list(pai=c(0.5),lambdad=c(3.5),lambdac=c(1/3))
+# compute log(1 + exp(x))
+log1pe <- local({
+  LOG.EPS2 <- log(.Machine$double.eps / 2)
+  function (x) {
+    l <- 0
+    if (x > 0) { l <- x; x <- -x } # range reduction
+    if (x < LOG.EPS2) l else l + log(1 + exp(x))
+  }
+})
+
+# E-step auxiliary function: compute log(alpha_t)
+log.alpha <- function (x, em) {
+  f1 <- log(dpois(x, em$lambdad))
+  f2 <- log(dpois(x, em$lambdac))
+  ll <- log(em$pai / (1 - em$pai)) # logit(lambda)
+  -log1pe(-ll + f2 - f1)
+}
+# `x` has observations in columns
+# `em` stores parameters: list(lambdad;lambdac;pai)
+em.update <- function (x, em) {
+  # [ E-step ]
+  p <- exp(apply(x, 2, log.alpha, em))
+  # [ M-step ]
+  pai <-mean(p)
+  lambdad <- apply(x, 1, weighted.mean, p)
+  lambdac <- apply(x, 1, weighted.mean, 1 - p)
+  list(pai = pai, lambdad = lambdad, lambdac = lambdac)
+}
+em.update(x,em)
+
+em.update.iterate<-function(x,em){
+  em<-em
+  em.new<-em.update(x,em)
+  while(abs((em.new$pai-em$pai)/em.new$pai) >= 1e-8){
+    em<-em.new
+    em.new<-em.update(x,em)
+  }
+  em.new
+}
+em.update.iterate(x,em)
+
+```
+
+```{r}
+#1(d)
+emn<-em.update.iterate(x,em)
+exp(log.alpha(2,emn))
+exp(log.alpha(3,emn))
+exp(apply(x,2,log.alpha,emn))
+
+```
+    From the result above, we can get the probalbility of the first intersetion being danger is 0.0323, and the probalbility of the fifth intersection being danger is 0.1754. By calculating all intersection, wa can think that the 5th, 8th, 15th and 18th are black spots.
+```{r}
+swapem<-list(pai=c(0.5),lambdad=c(1/3),lambdac=c(3.5))
+em.update.iterate(x,swapem)
+```
+
+#2(a)
+$$X_{j}\mid Z～N(\mu_{1}I(j\leq Z)+\mu_{2}I(j>Z),\sigma^2)$$
+
+$$\ell(\theta,X,Z=i)=-\frac{n}{2}*(log\sigma^2)-(2\sigma^2)^{-1}\sum^{n-1}_{i=1}\lbrace I(Z=i)(X-\mu_{(i)})^T(X-\mu_{(i)})\rbrace$$
+$$\ell(\theta,X_{j},Z)=-\frac{n}{2}*(log\sigma^2)-(2\sigma^2)^{-1}\sum^{n}_{j=1}\lbrace I(j\leq Z)(X_{j}-\mu_{1})^2+I(j>Z)(X_{j}-\mu_{2})^2)\rbrace$$
+$$Q(\theta;\theta^{(t)})=E_{Z\mid X;\theta^{(t)}}[\ell(\theta^{(t)};X,Z)]$$
+$$=-\frac{n}{2}log(\sigma^2)-\frac{1}{2\sigma^2}\sum^{n-1}_{i=1}E_{Z\mid X;\theta^{(t)}}I(Z=i)(X-\mu_{(i)})^T(X-\mu_{(i)})$$
+$$=-\frac{n}{2}log(\sigma^2)-\frac{1}{2\sigma^2}\sum^{n}_{j=1}\lbrace E_{Z\mid X;\theta^{(t)}}[I(j\leq Z)](X_{j}-\mu_{1})^2+E_{Z\mid X;\theta^{(t)}}[I(j>Z)](X_{j}-\mu_{2})^2\rbrace$$
+#2(b)
+$$\pi_{i}^{(t)}=E_{Z\mid X;\theta^{(t)}}I(Z=i)$$
+$$=P(I(Z=i)=1\mid X,\theta^{(t)})$$
+$$=\frac{P(I(Z=i)=1, X,\theta^{(t)})}{P(X,\theta^{(t)})}$$
+$$=\frac{\sum_{I(Z=i)\in\lbrace0,1\rbrace,k\neq i}P(I(Z=k);I(Z=i)=1;X;\theta^{(t)})}{\sum_{I(Z=i)\in\lbrace0,1\rbrace,k}P(I(Z=i)=1;X;\theta^{(t)})}$$
+$$=\frac{P(X_{j}\mid I(Z=i)=1;\theta^{(t)})P(I(Z=i)=1,\theta^{(t)})}{\sum_{I(Z=i)\in\lbrace0,1\rbrace,k} P(X_{j}\mid I(Z=i)=1;\theta^{(t)})P(I(Z=i)=1;\theta^{(t)})}$$
+$$=\frac{\frac{1}{n-1}\frac{1}{\sqrt{2\pi\sigma^2}}exp(-(X-\mu_{(i)}^{(t)})^T(X-\mu_{(i)}^{(t)})/2\sigma^{2(t)})}{\frac{1}{n-1}\sum_{k=1}^{n-1}\frac{1}{\sqrt{2\pi\sigma^2}}exp(-(X-\mu_{(k)}^{(t)})^T(X-\mu_{(k)}^{(t)})/2\sigma^{2(t)})}$$
+$$\frac{exp(-(X-\mu_{(i)}^{(t)})^T(X-\mu_{(i)}^{(t)})/2\sigma^{2(t)})}{\sum_{k=1}^{n-1}exp(-(X-\mu_{(k)}^{(t)})^T(X-\mu_{(k)}^{(t)})/2\sigma^{2(t)})}$$
+#2(c)
+$$\frac{\partial Q}{\partial \mu_{1}}=\frac{1}{\sigma^2}\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j\leq Z)](X_{j}-\mu_{1})$$
+$$\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j\leq Z)]X_{j}=\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j\leq Z)]\mu^{(t+1)}_{1}$$
+so we can get $$\mu^{(t+1)}_{1}=\frac{\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j\leq Z)]X_{j}}{\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j\leq Z)]}$$
+$$\frac{\partial Q}{\partial \mu_{2}}=\frac{1}{\sigma^2}\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j> Z)](X_{j}-\mu_{2})$$
+$$\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j> Z)]X_{j}=\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j\leq Z)]\mu^{(t+1)}_{2}$$
+so we can get $$\mu^{(t+1)}_{2}=\frac{\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j> Z)]X_{j}}{\sum^{n}_{j=1}E_{Z\mid X;\theta^{(t)}}[I(j> Z)]}$$
+$$\frac{\partial Q}{\partial \sigma^2}=\frac{-n}{2\sigma^2}+\frac{1}{2(\sigma^2)^2}\sum^{n-1}_{i=1}E_{Z\mid X;\theta^{(t)}}[I(Z=i)](X-\mu_{(i)})^T(X-\mu_{(i)})$$
+$$\frac{n}{2(\sigma^2)^{(t+1)}}=\frac{1}{2[(\sigma^2)^{(t+1)}]^2}\sum^{n-1}_{i=1}\pi_{i}^{(t)}(X-\mu_{(i)}^{(t+1)})^T(X-\mu_{(i)}^{(t+1)})$$
+so we can get$$\sigma^{2(t+1)}=\frac{1}{n}\sum^{n-1}_{i=1}\pi_{i}^{(t)}(X-\mu_{(i)}^{(t+1)})^T(X-\mu_{(i)}^{(t+1)})$$
+
+```{r}
+data("Nile")
+mu1<-mean(Nile[1:50])
+mu2<-mean(Nile[51:100])
+sigma<-(sum((Nile[1:50]-mu1)^2)+sum((Nile[51:100]-mu2)^2))/100
+
+
+# E-step auxiliary function: compute log(pi_t)
+
+pii<-function(x,mu1,mu2,sigma){
+  nominator<-numeric(length=99)
+  for (k in 1:99) {
+  nominator[k]<-exp(-crossprod(x-c(rep(mu1,k),rep(mu2,100-k)))/(2*sigma))
+  }
+  denominator<-sum(nominator)
+  nominator/denominator
+}
+
+logpii<-function(x,mu1,mu2,sig){#log(pit),sigma^2 canceled
+  pt<-numeric(length = 99)
+  for(i in 1:99){
+    pt[i]<-(-crossprod(x-c(rep(mu1,i),rep(mu2,100-i))))
+  }
+  pt<-pt-log1pe(sum(pt[2:99])/pt[1])
+  pt
+  }
+
+Qtheta<-function(x,mu1,mu2,sigma){
+  Q<-numeric(99)
+  for (i in 1:99) {
+    Q[i]<-logpii(x,mu1,mu2,sigma)[i]*crossprod(x-c(rep(mu1,i),rep(mu2,100-i)))
+  }
+  Qtheta<--50*log(sigma)-sum(Q)/(2*sigma)
+  return(Qtheta)
+}
+
+
+  
+em2.update<-function(x,mu1,mu2,sigma){
+  Q.old<-0
+  Q<-Qtheta(x,mu1,mu2,sigma)
+  u1<-numeric(100)
+  d1<-numeric(100)
+  u2<-numeric(100)
+  d2<-numeric(100)
+  s<-numeric(99)
+  p<-numeric(99)
+  while (abs(Q-Q.old)/Q>=10e-6) {
+    Q.old<-Q
+    for (j in 1:100){
+      u1[j]<-sum(pii(x,mu1,mu2,sigma)[j:99],na.rm=T)*x[j]
+      d1[j]<-sum(pii(x,mu1,mu2,sigma)[j:99],na.rm=T)
+      u2[j]<-sum(pii(x,mu1,mu2,sigma)[1:j-1],na.rm=T)*x[j]
+      d2[j]<-sum(pii(x,mu1,mu2,sigma)[1:j-1],na.rm=T)
+    }
+      mu1<-sum(u1)/sum(d1)
+      mu2<-sum(u2)/sum(d2)
+    for (i in 1:99) {
+         s[i]<-pii(x,mu1,mu2,sigma)[i]*crossprod(x-c(rep(mu1,i),rep(mu2,100-i)))
+    }
+      sigma<-sum(s)/100
+      p<-logpii(x,mu1,mu2,sigma)
+      Q<-Qtheta(x,mu1,mu2,sigma)
+  }
+  list(mu1 = mu1, mu2 = mu2,sigma = sigma,pit=p)
+}
+int<-em2.update(Nile,mu1,mu2,sigma)
+int
+pit<-int$pit
+plot(pit,type="l") #plot pi find the change point location
+which.max(pit)  #the 28th
+year<-seq(1871,1970,1)
+mu28<-c(rep(int$mu1,28),rep(int$mu2,100-28))
+tempdata<-data.frame(year,Nile,mu28)
+
+```
+
+

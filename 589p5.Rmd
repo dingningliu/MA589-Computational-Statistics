@@ -1,0 +1,140 @@
+
+#(c)
+```{r}
+beta0_0 <- 1
+beta_0 <- rnorm(11, beta0_0)
+theta_0 <- rbinom(11,1,0.5)#starting points
+```
+
+```{r}
+logit <- function (p) log(p / (1 - p))
+inv_logit <- function (x) 1 / (1 + exp(-x))
+LOGEPS <- log(.Machine$double.eps / 2)
+log1pe <- function (x) {
+  l <- ifelse(x > 0, x, 0)
+  x <- ifelse(x > 0, -x, x)
+  ifelse(x < LOGEPS, l, l + log1p(exp(x)))
+}
+connected <- function(pos){ #return a matrix to determine whether two theta are dependent
+  c <- matrix(nrow = length(pos), ncol = length(pos))
+  for (i in 1:length(pos)) {
+    for (j in 1:length(pos)) {
+      c[i,j] <- abs(pos[i] - pos[j])
+    }
+  }
+  c[c < 50000] <- 1
+  c[c > 50000] <- 0
+  c - diag(1,nrow = nrow(c), ncol = ncol(c))
+}
+logit_pi <- function(theta_t, beta_t, h = -100,T = 100, tao_02 = 1e-5, tao_2 = 1){
+  p <- numeric(length(theta_t))
+  for (i in 1:length(theta_t)) {
+    cc <- connected(hla_snps$position)[i,]
+    p[i] <- 1/2*(log(tao_02) - log(tao_2)) + beta_t[i]^2*(1/(2*tao_02) - 1/(2*tao_2)) +h+2/T*sum(2*cc%*%theta_t-1)}
+  p}
+
+step_sample_theta_j <- function(theta_t, beta_t){#gibbs to sample theta
+    for (i in 1:length(theta_t)) {
+      u <- logit(runif(1))
+      theta_t[i] <- ( u < logit_pi(theta_t, beta_t)[i])
+    }
+ theta_t   
+}
+
+
+step_sample_theta_j(theta_0, beta_0)
+
+```
+```{r}
+step_laplace_mh <- function (beta, y, x, offset, beta0 = 0, omega = 0) {#laplace
+  mu <- inv_logit(offset + x * beta)
+  s <- sqrt(1 / (sum(mu * (1 - mu) * x ^ 2) + omega))
+  betac <- rnorm(1, beta, s)
+  muc <- inv_logit(offset + x * betac)
+  sc <- sqrt(1 / (sum(muc * (1 - muc) * x ^ 2) + omega))
+  log_R <- log_posterior(betac, y, x, offset, beta0, omega) +
+    dnorm(beta, betac, sc, log = TRUE) -
+    (log_posterior(beta, y, x, offset, beta0, omega) +
+       dnorm(betac, beta, s, log = TRUE))
+  ifelse(log_R >= 0 || log(runif(1)) < log_R, betac, beta)
+}
+Y <- hla_study$status
+X <- as.matrix(hla_study[1:100,2:12])
+
+step_laplace_mh( beta0_0, Y, rep(1,100), X%*%beta_0)#beta0
+```
+ 
+```{r}
+step_laplace_t <- function(beta_t, y, x, tao0_2 = 1e-5, tao_2 = 1, beta0_t, theta_t){
+  t <- numeric(length(beta_t))
+  In <- rep(1,100)
+  i <- 1
+  phi <- In*beta0_t + as.matrix(x[,1])%*%beta_t[1] + x[,(i+1):length(beta_t)]%*%beta_t[(i+1):length(beta_t)]
+  omega <- (1 - theta_t[i]) / tao0_2 + theta_t[i] / tao_2
+  t[i] <- step_laplace_mh(beta_t[i], y, x[,i], phi, 0, omega)
+  for (i in 2:length(beta_t)-1) {
+    phi <- In*beta0_t + as.matrix(x[,1:(i-1)])%*%beta_t[1:(i-1)] + as.matrix(x[,(i+1):length(beta_t)])%*%beta_t[(i+1):length(beta_t)]
+    omega <- (1 - theta_t[i]) / tao0_2 + theta_t[i] / tao_2
+    t[i] <- step_laplace_mh(beta_t[i], y, x[,i], phi, 0, omega)
+  }
+  i <- 11
+  phi <- In*beta0_t + x[,1:(i-1)]%*%beta_t[1:(i-1)] + as.matrix(x[,length(beta_t)])%*%beta_t[length(beta_t)]
+  omega <- (1 - theta_t[i]) / tao0_2 + theta_t[i] / tao_2
+  t[i] <- step_laplace_mh(beta_t[i], y, x[,i], phi, 0, omega)
+  t
+}
+
+
+step_laplace_t (rnorm(11, beta0_0), Y, X, tao0_2 = 1e-5, tao_2 = 1, 1.49938, step_sample_theta_j(theta_0, beta_0))#beta
+```
+ 
+```{r}
+library(bayesplot)
+library(ggplot2)
+library(rstan)
+hybrid <- function(ns, theta_0, beta0_0, beta_0, y, x, tao0_2 = 1e-5, tao_2 = 1){# function to sample f
+  pa <- matrix(,nrow = 1000, ncol = 23)
+  pa[1,] <- c(beta0_0,beta_0,theta_0)
+  for (is in 2:ns) {
+    pa[is,13:23] <- step_sample_theta_j(pa[is-1,13:23], pa[is-1,2:12])
+    pa[is,1] <- step_laplace_mh(pa[is-1,1], Y, rep(1,100), X%*%pa[is-1,2:12])
+    pa[is,2:12] <- step_laplace_t(pa[is-1,2:12], Y, X, tao0_2 = 1e-5, tao_2 = 1, pa[is,1], pa[is,13:23])
+  }
+  pa
+}
+
+mcmc_array <- function (ns, nchains, params) {
+  nparams <- length(params)
+  array(dim = c(ns, nchains, nparams),
+        dimnames = list(iterations = NULL,
+                        chains = paste0("chain", 1:nchains),
+                        parameters = params))
+}
+ns <- 1000
+nchains <- 4
+sims <- mcmc_array(ns, nchains, c(paste0("beta",0:11),paste0("theta",1:11)))
+for (ic in 1:nchains)
+  sims[, ic, ] <- hybrid(ns,theta_0, beta0_0, beta_0, Y, X)
+rhat <- function (sims, ...)
+  rstan::monitor(sims, print = FALSE, ...)[, "Rhat"]
+```
+
+```{r}
+mcmc_trace(sims[, ,1:12])# trace plot
+```
+ 
+```{r}
+mcmc_acf(sims[, ,1:12])#auto corelationship
+```
+ 
+```{r}
+rhat(sims)[1:12]#scale reduction
+```
+ 
+```{r}
+mcmc_dens_overlay(sims[, , 1:12])
+```
+ 
+```{r}
+mcmc_areas(sims[, ,1:12])
+```

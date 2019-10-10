@@ -1,0 +1,169 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r}
+#1(a)
+inv.upper.tri<-function(u,transpose=TRUE) {
+  I<-matrix(c(1),nrow=nrow(u),ncol=ncol(u),byrow=T)
+  if (transpose) {x<-backsolve(u,I,transpose=TRUE)}
+  else {x<-backsolve(u,I,transpose=FALSE)}
+  return(x)
+}
+#test
+u<-matrix(c(1,2,3,0,2,3,0,0,3),nrow=3,ncol=3,byrow=T)
+u
+inv.upper.tri(u,transpose=TRUE)
+
+
+#1(b)
+norm2<-function(u) {
+  maxu<-max(abs(u))
+  u.new<-u/maxu  #
+  x<-sqrt(crossprod(u.new,u.new))
+  fx<-x*maxu
+    return(fx)
+}
+u <- 1e200 * rep(1,100)
+norm2(u)
+
+
+
+#1(c)
+normalize.cols<-function(A) {
+  n<-ncol(A)
+  i<-nrow(A)
+  U<-matrix(0,nrow=i,ncol=n)
+  for (j in 1:n) {
+    acol<-A[,j]
+    U[,j]<-A[,j]/norm2(acol)
+  }
+  return(U)
+}   
+#test
+A<-matrix(1:9,nrow=3,ncol=3,byrow=T)
+normalize.cols(A)
+
+#1(d)
+proj<-function(a,u) {
+  x<-(as.numeric(crossprod(u,a)/(norm2(u))^2))*u
+  return(x)
+}
+#test
+u <- 1e200 * rep(1,100)
+proj(1:100,u)
+
+#1(e)
+vandermonde<-function(a,d) {
+  m<-length(a)
+  v<-matrix(0,nrow=m,ncol=d+1)
+  v[,1]<-rep(1,m)
+  j<-2
+  for (j in 1:d+1) {
+    v[,j]<-a^(j-1)
+    j<-j + 1
+  }
+  return(v)
+}
+#test
+vandermonde(rep(1:5),5)
+
+#2(a)
+mep<-function(eps){
+  n<-eps
+  while (1+n/2>1) {n<-n/2}
+  return(n)
+}
+mep(1)
+
+#2(b)
+fx<-function(x) {log(1+exp(x))}
+fx(0)
+fx(-80)
+fx(80)
+fx(800)
+
+#2(c)
+sfx<-function(x) {
+  if (x<log(eps)) {sfx<-0}
+  else {sfx<-log(1+exp(x))}
+  return(sfx)
+}
+
+#2(d)
+ssfx<-function(x) {
+  if (x<log(eps)) {ssfx<-0}
+  else {ssfx<-log(1+exp(x))}
+  if (ssfx>1/eps) {ssfx<-x}
+  return(ssfx)
+}
+
+
+#3
+#3(a) proof
+      #A=QR C=t(Q)A=t(Q)QR so C is upper trianular
+      #t(C)C=t(A)QC=t(A)Qt(Q)A=t(A)A
+
+#3(b)
+QofV<-function(X,d) {
+  Q<-matrix(1,nrow=length(X),ncol=d+1)
+  U<-matrix(1,nrow=length(X),ncol=d+1)
+  for (i in 1:d+1) {
+    M<-rep(0,times=length(X))
+    N<-sapply(X, function(x){x^(i-1)})
+  for (j in 2:i-1) {
+    M<-M+proj(N,U[,j])
+  }
+   U[,i]<-N-M 
+  }
+  Q<-normalize.cols(U)
+  return(Q)
+}
+
+Qeta<-function(eta,alpha) {
+  eta[i]<-1
+  U<-matrix(1,nrow=nrow(X),ncol=d+1)
+  for (i in 1:d+1) {
+    U[,1]<-rep(1,times=n)
+    U[,2]<-X-alpha*U[,1]
+    eta[i+1]<-crossprod(U[,i],U[,i])
+    alpha[i]<-t(u[,i])%*%diag(X)%*%u[,i]/eta[i+1]}
+  for (j in 1:n) {
+    U[j,i+1]<-(x[j]-alpha[x])U[j,i]-eta[i+1]/eta[i]U[j,i-1]
+  }
+}
+
+```
+```{r}
+#4(c)
+betaML<-function(R,Gamma){
+  B<-backsolve(R,Gamma)
+  return(B)}
+
+#4(d)
+#(i)
+data("cars")
+Q1<-QofV(cars$speed,3)
+gamma1<-t(Q1)%*%cars$dist
+gamma1
+coef(lm(cars$dist~Q1-1))
+
+
+#(ii)
+R1<-crossprod(Q1,vandermonde(cars$speed,3))
+R1
+beta1<-betaML(R1,gamma1)
+beta1
+coef(lm(cars$dist~vandermonde(cars$speed,3)-1))
+
+#(iii)
+lm1<-lm(cars$dist~Q1-1)
+lm2<-lm(cars$dist~cars$speed)
+t.test(cars$dist,Q1-1)
+t.test(cars$dist,cars$speed)
+```
+
+```
+
